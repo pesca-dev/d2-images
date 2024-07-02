@@ -15,7 +15,9 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
       - name: Update D2
         working-directory: d2
-        run: git checkout "${{ github.event.client_payload.sha }}"
+        run: |
+          git fetch
+          git checkout "${{ github.event.client_payload.sha }}"
       - name: Commit the new image reference
         run: |
           git add -A
