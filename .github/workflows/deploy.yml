@@ -1,0 +1,30 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows:
+    - Docker
+    branches:
+    - main
+    types:
+    - completed
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch') && github.repository == 'pesca-dev/d2-images' && github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Fetch D2 info
+      id: d2
+      run: echo "sha=$(cd d2 && git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+    - name: Trigger deployment
+      uses: peter-evans/repository-dispatch@v1
+      with:
+        token: ${{ secrets.DEPLOY_GITHUB_PAT }}
+        repository: pesca-dev/d2-deploy
+        event-type: d2-deploy-trigger
+        client-payload: '{"sha": "${{ steps.d2.outputs.sha }}"}'
