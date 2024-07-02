@@ -25,7 +25,6 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - id: meta
       uses: docker/metadata-action@v4
-      working-directory: d2
       with:
         images: ghcr.io/pesca-dev/d2
         tags: |
@@ -33,9 +32,8 @@ jobs:
           type=sha,format=long
     - name: Build and Push image
       uses: docker/build-push-action@v4
-      working-directory: d2
       with:
-        context: .
+        context: d2
         platforms: linux/amd64,linux/arm64/v8
         network: host
         push: ${{ github.event_name != 'pull_request' }}
