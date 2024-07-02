@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Configure Git user
         run: |
           git config --global user.name "github-actions[bot]"
@@ -16,7 +18,7 @@ jobs:
       - name: Update D2
         working-directory: d2
         run: |
-          git fetch --all
+          git fetch
           git checkout "${{ github.event.client_payload.sha }}"
       - name: Commit the new image reference
         run: |
