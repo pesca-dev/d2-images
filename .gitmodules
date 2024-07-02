@@ -1,0 +1,3 @@
+[submodule "d2"]
+	path = d2
+	url = https://github.com/fwcd/d2.git
