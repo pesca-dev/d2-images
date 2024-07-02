@@ -77,6 +77,12 @@ jobs:
     needs: [build]
 
     steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Fetch D2 info
+      id: d2
+      run: echo "sha=$(cd d2 && git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
     - name: Download digests
       uses: actions/download-artifact@v4
       with:
@@ -90,6 +96,9 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY_IMAGE }}
+        tags: |
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=sha-${{ steps.d2.outputs.sha }}
     - name: Log in to GHCR
       uses: docker/login-action@v3
       with:
