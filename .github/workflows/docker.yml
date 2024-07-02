@@ -8,38 +8,101 @@ on:
     types: d2-build-image-trigger
   workflow_dispatch:
 
-# TODO: Build x86_64 images again, see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
+env:
+  REGISTRY_IMAGE: ghcr.io/pesca-dev/d2
+
+# See https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
 
 jobs:
-  build-image:
-    runs-on: ARM64
+  build:
+    strategy:
+      matrix:
+        include:
+        - name: Ubuntu x86_64
+          runs-on: ubuntu-latest
+          platform: linux/amd64
+        - name: Ubuntu arm64
+          runs-on: ARM64
+          platform: linux/arm64
+
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
+    - name: Prepare
+      run: |
+        platform="${{ matrix.platform }}"
+        echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV 
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v3
     - name: Log in to GHCR
-      uses: docker/login-action@v1
+      uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - id: meta
-      uses: docker/metadata-action@v4
+    - name: Set up Docker metadata
+      id: meta
+      uses: docker/metadata-action@v5
       with:
-        images: ghcr.io/pesca-dev/d2
-        tags: |
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=sha,format=long
-    - name: Build and Push image
-      uses: docker/build-push-action@v4
+        images: ${{ env.REGISTRY_IMAGE }}
+    - name: Build and push by digest
+      id: build
+      uses: docker/build-push-action@v6
       with:
         context: d2
-        platforms: linux/arm64/v8
+        platforms: ${{ matrix.platform }}
         network: host
         push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+    - name: Export digest
+      run: |
+        mkdir -p /tmp/digests
+        digest="${{ steps.build.outputs.digest }}"
+        touch "/tmp/digests/${digest#sha256:}"          
+    - name: Upload digest
+      uses: actions/upload-artifact@v4
+      with:
+        name: digests-${{ env.PLATFORM_PAIR }}
+        path: /tmp/digests/*
+        if-no-files-found: error
+        retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+    - name: Download digests
+      uses: actions/download-artifact@v4
+      with:
+        path: /tmp/digests
+        pattern: digests-*
+        merge-multiple: true
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Set up Docker metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY_IMAGE }}
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create manifest list and push
+      working-directory: /tmp/digests
+      run: |
+        docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+          $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+    - name: Inspect image
+      run: |
+        docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
