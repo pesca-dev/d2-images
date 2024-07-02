@@ -18,14 +18,12 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: Ubuntu x86_64
+        - platform: linux/amd64
           runs-on: ubuntu-latest
-          platform: linux/amd64
-        - name: Ubuntu arm64
+        - platform: linux/arm64
           runs-on: ARM64
-          platform: linux/arm64
 
-    name: ${{ matrix.name }}
+    name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runs-on }}
 
     steps:
