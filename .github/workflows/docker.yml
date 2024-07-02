@@ -4,9 +4,12 @@ on:
   push:
     branches:
     - main
-  repository_dispatch:
-    types: d2-build-image-trigger
   workflow_dispatch:
+  workflow_run:
+    workflows:
+    - Update D2
+    types:
+    - completed
 
 env:
   REGISTRY_IMAGE: ghcr.io/pesca-dev/d2

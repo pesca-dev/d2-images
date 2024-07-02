@@ -1,0 +1,24 @@
+name: Update D2
+
+on:
+  repository_dispatch:
+    types: d2-update-trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure Git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Update D2
+        working-directory: d2
+        run: git checkout "${{ github.event.client_payload.sha }}"
+      - name: Commit the new image reference
+        run: |
+          git add -A
+          git commit --allow-empty -m "Update D2 to \`${{ github.event.client_payload.sha }}\`"
+      - name: Push
+        run: git push
