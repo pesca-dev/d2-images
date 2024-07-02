@@ -16,7 +16,7 @@ jobs:
       - name: Update D2
         working-directory: d2
         run: |
-          git fetch
+          git fetch --all
           git checkout "${{ github.event.client_payload.sha }}"
       - name: Commit the new image reference
         run: |
